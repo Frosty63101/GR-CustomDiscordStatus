@@ -1,12 +1,12 @@
 # DiscCustomGRRP
 
-This repository contains the source code and resources for the DiscCustomGRRP project.
+This repository contains the source code and resources for the GR-CustomDiscordStatus project.
 
 ## Getting Started
 
 1. Clone the repository:
     ```
-    git clone https://github.com/Frosty63101/DiscCustomGRRP.git
+    git clone https://github.com/Frosty63101/GR-CustomDiscordStatus.git
     ```
 2. Install any required dependencies as described in your project's documentation.
 
