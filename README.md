@@ -7,14 +7,23 @@ This repository contains the source code and resources for the DiscCustomGRRP pr
 1. Clone the repository:
     ```
     git clone https://github.com/Frosty63101/DiscCustomGRRP.git
+    cd DiscCustomGRRP
     ```
-2. Install any required dependencies as described in your project's documentation.
+2. Install any required dependencies listed in `requirements.txt`.
+    ```
+    pip install -r requirements.txt
+    ```
 
 ## Usage
 
-Run the main script to start the application:
+Install dependencies and run the main script to start the application:
     ```
     python GR-CustomDiscordStatus.py
+    ```
+
+If you want to create a standalone executable, you can use PyInstaller. Make sure you have it installed:
+    ```
+    pip install pyinstaller
     ```
 
 exe compiled with PyInstaller:
@@ -26,7 +35,10 @@ Do not change "discordAppId" from 1356666997760462859 unless you know how to set
 Your goodreads user ID is the numbers before the username of the url for your profile page on Goodreads.
 
 Note:
-- This will only display the top line of currently reading
+- This will only display the top line of currently reading at the following URL:
+    ```
+    https://www.goodreads.com/review/list/{userId}?shelf=currently-reading
+    ```
 
 ## Features
 
