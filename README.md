@@ -1,6 +1,6 @@
 # DiscCustomGRRP
 
-This repository contains the source code and resources for the DiscCustomGRRP project.
+This repository contains the source code and resources for the GR-CustomDiscordStatus project.
 
 ## Getting Started
 
