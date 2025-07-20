@@ -1,4 +1,5 @@
 import time
+from turtle import st
 import requests
 from bs4 import BeautifulSoup
 from pypresence import Presence
@@ -107,11 +108,13 @@ def presence_loop():
                     log(f"RPC update failed: {e}")
             else:
                 log("[Error] Could not retrieve current book.")
+                time.sleep(10)
+                continue
         else:
             log("Presence loop paused.")
         for _ in range(60):
             time.sleep(1)
-            if loopShouldRunEvent.is_set():
+            if not loopShouldRunEvent.is_set() and not stayRunningAfterGUIEvent.is_set():
                 break
 
 # === GUI ===
@@ -119,6 +122,7 @@ def launch_gui():
     global discordAppId, goodreadsUserId
 
     def save_config():
+        global discordAppId, goodreadsUserId
         configData = {
             "discordAppId": discordAppIdVar.get(),
             "goodreadsUserId": goodreadsUserIdVar.get(),
