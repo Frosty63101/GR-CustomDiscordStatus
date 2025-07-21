@@ -1,0 +1,58 @@
+name: Build and Upload App
+
+on:
+  push:
+    branches: [main]  # Change to your default branch
+  workflow_dispatch:   # allows manual trigger
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build Windows executable
+        run: |
+          pyinstaller --noconsole --onefile GR-CustomDiscordStatus.py
+        shell: bash
+
+      - name: Upload Windows executable
+        uses: actions/upload-artifact@v3
+        with:
+          name: Windows-EXE
+          path: GR-CustomDiscordStatus.exe
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install py2app pyobjc
+
+      - name: Build macOS .app
+        run: |
+          python setup.py py2app
+
+      - name: Upload macOS .app
+        uses: actions/upload-artifact@v3
+        with:
+          name: macOS-APP
+          path: GR-CustomDiscordStatus.app
