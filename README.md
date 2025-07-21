@@ -6,8 +6,8 @@ This repository contains the source code and resources for the GR-CustomDiscordS
 
 1. Clone the repository:
     ```bash
-    git clone https://github.com/Frosty63101/DiscCustomGRRP.git
-    cd DiscCustomGRRP
+    git clone https://github.com/Frosty63101/GR-CustomDiscordStatus.git
+    cd GR-CustomDiscordStatus
     ```
 
 2. Install the required dependencies:
