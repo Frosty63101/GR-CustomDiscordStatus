@@ -22,7 +22,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install pyinstaller
+          pip install pyinstaller requests beautifulsoup4 pypresence pystray pillow win32com
 
       - name: Build Windows executable
         run: |
@@ -48,7 +48,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install py2app pyobjc pystray pillow
+          pip install py2app pyobjc requests beautifulsoup4 pypresence pystray pillow
 
       - name: Build macOS .app
         run: python setup.py py2app
