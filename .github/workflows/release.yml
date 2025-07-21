@@ -1,0 +1,78 @@
+name: Build and Upload App
+
+on:
+  push:
+    branches: [main]  # Regular push
+    tags: ["v*"]       # e.g., v1.0.0
+  workflow_dispatch:   # Manual trigger
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    outputs:
+      exe-path: ${{ steps.set-output.outputs.exe }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build Windows executable
+        run: |
+          pyinstaller --noconsole --onefile GR-CustomDiscordStatus.py
+        shell: bash
+
+      - name: Save output path
+        id: set-output
+        run: echo "exe=dist/GR-CustomDiscordStatus.exe" >> "$GITHUB_OUTPUT"
+
+  build-macos:
+    runs-on: macos-latest
+    outputs:
+      app-path: ${{ steps.set-output.outputs.app }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install py2app pyobjc pystray pillow
+
+      - name: Build macOS .app
+        run: python setup.py py2app
+
+      - name: Save output path
+        id: set-output
+        run: echo "app=dist/GR-CustomDiscordStatus.app" >> "$GITHUB_OUTPUT"
+
+  release:
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Display artifact structure
+        run: ls -R ./artifacts
+
+      - name: Create GitHub Release and Upload
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/Windows-EXE/GR-CustomDiscordStatus.exe
+            artifacts/macOS-APP/GR-CustomDiscordStatus.app
