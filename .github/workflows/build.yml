@@ -21,9 +21,12 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller requests beautifulsoup4 pypresence pystray pillow pywin32
 
+      - name: Generate Windows .ico file
+        run: python generate_ico.py
+      
       - name: Build Windows executable
         run: |
-          pyinstaller --noconsole --onefile GR-CustomDiscordStatus.py
+          pyinstaller --noconsole --onefile --icon=icon.ico GR-CustomDiscordStatus.py
         shell: bash
 
       - name: Upload Windows executable
