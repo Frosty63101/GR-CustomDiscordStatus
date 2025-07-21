@@ -10,6 +10,9 @@ from tkinter import ttk, messagebox
 import pystray
 from PIL import Image, ImageDraw
 import math
+from win32com.client import Dispatch
+import os
+import sys
 
 configFile = "config.json"
 # === Global Variables ===
@@ -17,6 +20,7 @@ discordAppId = None
 goodreadsUserId = None
 refreshInterval = 60 
 minimizeToTray = True
+StartOnStartup = False
 
 # === Events ===
 loopShouldRunEvent = threading.Event()
@@ -42,6 +46,7 @@ def load_config():
             "goodreadsUserId": "YOUR_GOODREADS_USER_ID",
             "keepRunning": True,
             "minimizeToTray": True,
+            "startOnStartup": False,
             "refreshInterval": 60
         }
         with open(configFile, "w") as f:
@@ -54,8 +59,34 @@ discordAppId = config.get("discordAppId")
 goodreadsUserId = config.get("goodreadsUserId")
 refreshInterval = config.get("refreshInterval", 60)
 minimizeToTray = config.get("minimizeToTray", True)
+StartOnStartup = config.get("startOnStartup", False)
 if config.get("keepRunning", True):
     stayRunningAfterGUIEvent.set()
+
+# === Startup Shortcut Creation ===
+def set_startup_enabled():
+    startup_dir = os.path.join(os.getenv('APPDATA'), "Microsoft\\Windows\\Start Menu\\Programs\\Startup")
+    script_path = os.path.realpath(sys.argv[0])
+    shortcut_path = os.path.join(startup_dir, "GoodreadsRPC.lnk")
+
+    if StartOnStartup:
+        try:
+            shell = Dispatch("WScript.Shell")
+            shortcut = shell.CreateShortCut(shortcut_path)
+            shortcut.Targetpath = script_path
+            shortcut.WorkingDirectory = os.path.dirname(script_path)
+            shortcut.IconLocation = script_path
+            shortcut.save()
+            log("Startup shortcut created.")
+        except Exception as e:
+            log(f"Failed to create startup shortcut: {e}")
+    else:
+        try:
+            if os.path.exists(shortcut_path):
+                os.remove(shortcut_path)
+                log("Startup shortcut removed.")
+        except Exception as e:
+            log(f"Failed to remove startup shortcut: {e}")
 
 # === Create System Tray Icon ===
 def create_image():
@@ -189,15 +220,16 @@ def presence_loop():
 
 # === GUI ===
 def launch_gui():
-    global discordAppId, goodreadsUserId, refreshInterval, minimizeToTray
+    global discordAppId, goodreadsUserId, refreshInterval, minimizeToTray, StartOnStartup
 
     def save_config():
-        global discordAppId, goodreadsUserId, refreshInterval, minimizeToTray
+        global discordAppId, goodreadsUserId, refreshInterval, minimizeToTray, StartOnStartup
         configData = {
             "discordAppId": discordAppIdVar.get(),
             "goodreadsUserId": goodreadsUserIdVar.get(),
             "keepRunning": keepRunningVar.get(),
             "minimizeToTray": minimizeToTrayVar.get(),
+            "startOnStartup": startOnStartupVar.get(),
             "refreshInterval": refreshIntervalVar.get()
         }
         with open(configFile, "w") as f:
@@ -206,11 +238,12 @@ def launch_gui():
         goodreadsUserId = configData["goodreadsUserId"]
         refreshInterval = configData["refreshInterval"]
         minimizeToTray = configData["minimizeToTray"]
+        StartOnStartup = configData["startOnStartup"]
+        set_startup_enabled()
         if keepRunningVar.get():
             stayRunningAfterGUIEvent.set()
         else:
             stayRunningAfterGUIEvent.clear()
-        messagebox.showinfo("Saved", "Configuration saved successfully.")
 
     def on_close():
         log(f"GUI closed. stayRunningAfterGUIEvent: {stayRunningAfterGUIEvent.is_set()}")
@@ -232,20 +265,36 @@ def launch_gui():
     keepRunningVar = tk.BooleanVar(value=stayRunningAfterGUIEvent.is_set())
     refreshIntervalVar = tk.IntVar(value=refreshInterval)
     minimizeToTrayVar = tk.BooleanVar(value=minimizeToTray)
+    startOnStartupVar = tk.BooleanVar(value=config.get("startOnStartup", False))
 
-    ttk.Label(root, text="Discord App ID:").grid(row=0, column=0, padx=10, pady=5, sticky="w")
-    ttk.Entry(root, textvariable=discordAppIdVar, width=40).grid(row=0, column=1, padx=10, pady=5)
-
-    ttk.Label(root, text="Goodreads User ID:").grid(row=1, column=0, padx=10, pady=5, sticky="w")
-    ttk.Entry(root, textvariable=goodreadsUserIdVar, width=40).grid(row=1, column=1, padx=10, pady=5)
+    ttk.Label(root, text="Discord App ID (Enter to Save):").grid(row=0, column=0, padx=10, pady=5, sticky="w")
+    discordAppIdEntry = ttk.Entry(root, textvariable=discordAppIdVar, width=40)
+    discordAppIdEntry.grid(row=0, column=1, padx=10, pady=5)
+    discordAppIdEntry.bind("<Return>", lambda e: save_config())
+    discordAppIdEntry.bind("<FocusOut>", lambda e: save_config())
     
-    ttk.Checkbutton(root, text="Keep presence running after closing", variable=keepRunningVar).grid(row=2, column=0, columnspan=2, pady=5)
-    ttk.Checkbutton(root, text="Minimize to tray on close", variable=minimizeToTrayVar).grid(row=3, column=0, columnspan=2, pady=5)
-    
-    ttk.Label(root, text="Refresh Interval (seconds):").grid(row=4, column=0, padx=10, pady=5, sticky="w")
-    ttk.Entry(root, textvariable=refreshIntervalVar, width=10).grid(row=4, column=1, padx=10, pady=5)
 
-    ttk.Button(root, text="Save", command=save_config).grid(row=5, column=0, columnspan=2, pady=10)
+    ttk.Label(root, text="Goodreads User ID (Enter to Save):").grid(row=1, column=0, padx=10, pady=5, sticky="w")
+    goodreadsUserIdEntry = ttk.Entry(root, textvariable=goodreadsUserIdVar, width=40)
+    goodreadsUserIdEntry.grid(row=1, column=1, padx=10, pady=5)
+    goodreadsUserIdEntry.bind("<Return>", lambda e: save_config())
+    goodreadsUserIdEntry.bind("<FocusOut>", lambda e: save_config())
+
+    keepRunningCheck = ttk.Checkbutton(root, text="Keep presence running after closing", variable=keepRunningVar)
+    keepRunningCheck.grid(row=2, column=0, columnspan=2, pady=5)
+    keepRunningVar.trace_add("write", lambda *_: save_config())
+    minimizeToTrayCheck = ttk.Checkbutton(root, text="Minimize to tray on close", variable=minimizeToTrayVar)
+    minimizeToTrayCheck.grid(row=3, column=0, columnspan=2, pady=5)
+    minimizeToTrayVar.trace_add("write", lambda *_: save_config())
+    startOnStartupCheck = ttk.Checkbutton(root, text="Start this app on system startup", variable=startOnStartupVar)
+    startOnStartupCheck.grid(row=4, column=0, columnspan=2, pady=5)
+    startOnStartupVar.trace_add("write", lambda *_: save_config())
+
+    ttk.Label(root, text="Refresh Interval (seconds):").grid(row=5, column=0, padx=10, pady=5, sticky="w")
+    refreshIntervalEntry = ttk.Entry(root, textvariable=refreshIntervalVar, width=10)
+    refreshIntervalEntry.grid(row=5, column=1, padx=10, pady=5)
+    refreshIntervalEntry.bind("<Return>", lambda e: save_config())
+    refreshIntervalEntry.bind("<FocusOut>", lambda e: save_config())
 
     root.protocol("WM_DELETE_WINDOW", on_close)
     

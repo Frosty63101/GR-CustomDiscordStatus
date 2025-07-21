@@ -3,5 +3,6 @@
     "goodreadsUserId": "YOUR_GOODREADS_USER_ID",
     "keepRunning": true,
     "minimizeToTray": true,
+    "startOnStartup": false,
     "refreshInterval": 60
 }
