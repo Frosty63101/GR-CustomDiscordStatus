@@ -22,6 +22,8 @@ IS_LINUX = platform.system() == "Linux"
 
 if IS_WINDOWS:
     from win32com.client import Dispatch
+elif IS_MAC:
+    import pyobjc
 
 
 configFile = "config.json"
