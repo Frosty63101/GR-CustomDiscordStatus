@@ -26,7 +26,17 @@ elif IS_MAC:
     import pyobjc
 
 
-configFile = "config.json"
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    # PyInstaller (if used)
+    basePath = sys._MEIPASS
+elif getattr(sys, 'frozen', False):
+    # py2app or py2exe
+    basePath = os.path.dirname(sys.executable)
+else:
+    basePath = os.path.dirname(os.path.abspath(__file__))
+
+configFile = os.path.join(basePath, "config.json")
+
 # === Global Variables ===
 discordAppId = None
 goodreadsUserId = None
@@ -42,7 +52,8 @@ trayQuitEvent = threading.Event()
 # === Logging Function ===
 def log(message):
     try:
-        with open("log.txt", "a") as logFile:
+        logFilePath = os.path.join(basePath, "log.txt")
+        with open(logFilePath, "a") as logFile:
             logFile.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - {message}\n")
     except Exception as e:
         print(f"Failed to log message: {e}")

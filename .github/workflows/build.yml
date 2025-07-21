@@ -47,6 +47,10 @@ jobs:
           pip install -r requirements.txt
           pip install py2app pyobjc requests beautifulsoup4 pypresence pystray pillow
 
+      - name: Generate .icns icon file
+        run: |
+          python generate_icns.py
+          ls -lh icon.icns 
 
       - name: Build macOS .app
         run: |
