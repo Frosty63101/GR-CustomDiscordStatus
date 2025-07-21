@@ -1,10 +1,11 @@
 from setuptools import setup
 
-APP = ['GR-CustomDiscordStatus.py']
+APP = ['GoodreadsRPC.py']
 DATA_FILES = ['config.json']
 OPTIONS = {
     'argv_emulation': True,
     'packages': ['requests', 'bs4', 'pypresence', 'PIL', 'pystray'],
+    'includes': ['PIL.Image', 'PIL.ImageDraw'],
 }
 
 setup(
