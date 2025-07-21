@@ -1,5 +1,7 @@
 {
     "discordAppId": "1356666997760462859",
     "goodreadsUserId": "YOUR_GOODREADS_USER_ID",
-    "keepRunning": true
+    "keepRunning": true,
+    "minimizeToTray": true,
+    "refreshInterval": 60
 }
