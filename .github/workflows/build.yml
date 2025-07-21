@@ -30,7 +30,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Windows-EXE
-          path: GR-CustomDiscordStatus.exe
+          path: dist/GR-CustomDiscordStatus.exe
 
   build-macos:
     runs-on: macos-latest
@@ -56,4 +56,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: macOS-APP
-          path: GR-CustomDiscordStatus.app
+          path: dist/GR-CustomDiscordStatus.app
