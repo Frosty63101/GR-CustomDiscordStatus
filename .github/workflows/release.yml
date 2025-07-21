@@ -76,13 +76,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: Windows-EXE
-          path: ./artifacts/windows
+          path: ./artifacts
 
       - name: Download macOS artifact
         uses: actions/download-artifact@v4
         with:
           name: macOS-APP
-          path: ./artifacts/macos
+          path: ./artifacts
+
 
       - name: Show downloaded files
         run: ls -R ./artifacts
@@ -91,6 +92,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/windows/GR-CustomDiscordStatus.exe
-            artifacts/macos/GR-CustomDiscordStatus.app.zip
+            artifacts/GR-CustomDiscordStatus.exe
+            artifacts/GR-CustomDiscordStatus.app.zip
+          generate_release_notes: true
             
