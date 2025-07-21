@@ -22,20 +22,25 @@ IS_LINUX = platform.system() == "Linux"
 
 if IS_WINDOWS:
     from win32com.client import Dispatch
-elif IS_MAC:
-    import pyobjc
 
+basePath = os.path.dirname(os.path.realpath(sys.argv[0]))
 
-if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-    # PyInstaller (if used)
-    basePath = sys._MEIPASS
-elif getattr(sys, 'frozen', False):
-    # py2app or py2exe
-    basePath = os.path.dirname(sys.executable)
-else:
-    basePath = os.path.dirname(os.path.abspath(__file__))
+def get_config_path():
+    if IS_WINDOWS:
+        appdata = os.getenv("APPDATA") or os.path.expanduser("~\\AppData\\Roaming")
+        return os.path.join(appdata, "GoodreadsRPC", "config.json")
+    elif IS_MAC:
+        return os.path.expanduser("~/Library/Application Support/GoodreadsRPC/config.json")
+    elif IS_LINUX:
+        return os.path.expanduser("~/.config/GoodreadsRPC/config.json")
+    else:
+        return os.path.join(basePath, "config.json")
 
-configFile = os.path.join(basePath, "config.json")
+configFile = get_config_path()
+
+# Ensure directory exists
+os.makedirs(os.path.dirname(configFile), exist_ok=True)
+
 
 # === Global Variables ===
 discordAppId = None
@@ -116,6 +121,8 @@ def set_startup_enabled():
         plist_path = os.path.expanduser(f"~/Library/LaunchAgents/{plist_name}")
         python_exec = sys.executable
         script_path = os.path.realpath(sys.argv[0])
+        if getattr(sys, 'frozen', False):
+            script_path = sys.executable
 
         if StartOnStartup:
             plist_content = f"""<?xml version="1.0" encoding="UTF-8"?>

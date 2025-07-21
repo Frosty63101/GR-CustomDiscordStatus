@@ -3,7 +3,7 @@ name: Build and Upload App
 on:
   push:
     branches: [main]
-    tags: ["v*"]       # Only release when tagging e.g. v1.0.0
+    tags: ["v*"] 
   workflow_dispatch:
 permissions:
   contents: write
@@ -30,7 +30,6 @@ jobs:
       - name: Build Windows executable
         run: |
           pyinstaller --noconsole --onefile --icon=icon.ico GR-CustomDiscordStatus.py
-        shell: bash
 
       - name: Upload Windows executable
         uses: actions/upload-artifact@v4
@@ -91,7 +90,6 @@ jobs:
         with:
           name: macOS-APP
           path: ./artifacts
-
 
       - name: Show downloaded files
         run: ls -R ./artifacts

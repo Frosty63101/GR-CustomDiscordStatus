@@ -2,8 +2,8 @@ name: Build and Upload App
 
 on:
   push:
-    branches: [main]  # Change to your default branch
-  workflow_dispatch:   # allows manual trigger
+    branches: [main] 
+  workflow_dispatch: 
 
 jobs:
   build-windows:
@@ -27,7 +27,6 @@ jobs:
       - name: Build Windows executable
         run: |
           pyinstaller --noconsole --onefile --icon=icon.ico GR-CustomDiscordStatus.py
-        shell: bash
 
       - name: Upload Windows executable
         uses: actions/upload-artifact@v4
