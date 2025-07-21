@@ -1,6 +1,6 @@
 from setuptools import setup
 
-APP = ['GoodreadsRPC.py']
+APP = ['GR-CustomDiscordStatus.py']
 DATA_FILES = ['config.json']
 OPTIONS = {
     'argv_emulation': True,
