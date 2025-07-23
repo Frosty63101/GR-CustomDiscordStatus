@@ -105,12 +105,14 @@ currentISBN = config.get("currentISBN", None)
 if config.get("keepRunning", True):
     stayRunningAfterGUIEvent.set()
 
-try:
-    with open("/tmp/grrpc_launched.txt", "w") as f:
-        f.write("Launched successfully.")
-except Exception as e:
-    with open("/tmp/grrpc_launch_error.txt", "w") as f:
-        f.write(str(e))
+# only do this if running on github actions
+if os.getenv("GITHUB_ACTIONS") == "true" or "CI" in os.environ:
+    try:
+        with open("/tmp/grrpc_launched.txt", "w") as f:
+            f.write("Launched successfully.")
+    except Exception as e:
+        with open("/tmp/grrpc_launch_error.txt", "w") as f:
+            f.write(str(e))
 
 # === Updater Function ===
 def update_application():
