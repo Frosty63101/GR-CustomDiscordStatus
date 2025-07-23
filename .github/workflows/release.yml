@@ -1,4 +1,4 @@
-name: Build and Upload App
+name: Build and Upload App on release
 
 on:
   push:
