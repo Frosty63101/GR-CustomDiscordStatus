@@ -40,9 +40,11 @@ python setup.py py2app
 
 - **Discord Rich Presence** that updates with your current Goodreads book.
 - Parses Goodreads "Currently Reading" shelf HTML.
+- Supports picking one of multiple books.
 - GUI config for:
   - Discord App ID
   - Goodreads User ID
+  - Book selection (single book)
   - Refresh interval
   - Minimize to tray behavior
   - Auto-start on system login (Windows and macOS supported)
