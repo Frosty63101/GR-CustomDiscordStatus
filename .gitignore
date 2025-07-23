@@ -2,3 +2,5 @@ log.txt
 build/
 dist/
 *.spec
+icon.iconset/
+icon.ico

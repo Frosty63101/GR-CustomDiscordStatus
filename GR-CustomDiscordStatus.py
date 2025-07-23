@@ -105,6 +105,55 @@ currentISBN = config.get("currentISBN", None)
 if config.get("keepRunning", True):
     stayRunningAfterGUIEvent.set()
 
+# === Updater Function ===
+def update_application():
+    try:
+        log("Checking for updates...")
+        latest_release_url = "https://api.github.com/repos/Frosty63101/GR-CustomDiscordStatus/releases/latest"
+        response = requests.get(latest_release_url, timeout=10)
+        response.raise_for_status()
+        release_data = response.json()
+
+        # Find the correct file
+        download_url = None
+        for asset in release_data.get("assets", []):
+            if IS_WINDOWS and asset["name"].endswith(".exe"):
+                download_url = asset["browser_download_url"]
+                break
+            elif IS_MAC and asset["name"].endswith(".app.zip"):
+                download_url = asset["browser_download_url"]
+                break
+
+        if not download_url:
+            messagebox.showerror("Update Error", "No compatible release found.")
+            return
+
+        log(f"Downloading update from: {download_url}")
+        tmp_file = os.path.join(basePath, "GoodreadsRPC_Update.tmp")
+        with requests.get(download_url, stream=True) as r:
+            r.raise_for_status()
+            with open(tmp_file, "wb") as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+
+        current_path = os.path.realpath(sys.argv[0])
+        backup_path = current_path + ".bak"
+
+        log("Renaming current executable to backup.")
+        os.rename(current_path, backup_path)
+        log("Renaming downloaded update to original filename.")
+        os.rename(tmp_file, current_path)
+
+        log("Relaunching updated application.")
+        subprocess.Popen([current_path])
+        trayQuitEvent.set()
+        os._exit(0)
+
+    except Exception as e:
+        log(f"Update failed: {e}")
+        messagebox.showerror("Update Error", f"Update failed: {e}")
+
+
 # === Startup Shortcut Creation ===
 def set_startup_enabled():
     if IS_WINDOWS:
@@ -426,6 +475,9 @@ def launch_gui():
     refreshIntervalEntry.grid(row=6, column=1, padx=10, pady=5)
     refreshIntervalEntry.bind("<Return>", lambda e: save_config())
     refreshIntervalEntry.bind("<FocusOut>", lambda e: save_config())
+    
+    updateButton = ttk.Button(root, text="Check for Updates", command=update_application)
+    updateButton.grid(row=7, column=0, columnspan=2, pady=10)
 
     root.protocol("WM_DELETE_WINDOW", on_close)
     
