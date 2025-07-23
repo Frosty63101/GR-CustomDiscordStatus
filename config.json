@@ -1,0 +1,9 @@
+{
+    "discordAppId": "1356666997760462859",
+    "goodreadsUserId": "GOOD_READS_USER_ID",
+    "keepRunning": true,
+    "minimizeToTray": true,
+    "startOnStartup": true,
+    "refreshInterval": 3600,
+    "currentISBN": null
+}
