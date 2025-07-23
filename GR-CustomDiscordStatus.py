@@ -49,6 +49,17 @@ refreshInterval = 60
 minimizeToTray = True
 StartOnStartup = False
 
+books = {}
+# Variables for current book details
+currentBook = {
+    "isbn": None,
+    "title": None,
+    "author": None,
+    "cover": None,
+    "start": None
+}
+currentISBN = None
+
 # === Events ===
 loopShouldRunEvent = threading.Event()
 stayRunningAfterGUIEvent = threading.Event()
@@ -75,7 +86,8 @@ def load_config():
             "keepRunning": True,
             "minimizeToTray": True,
             "startOnStartup": False,
-            "refreshInterval": 60
+            "refreshInterval": 60,
+            "currentISBN": None
         }
         with open(configFile, "w") as f:
             json.dump(defaultConfig, f, indent=4)
@@ -88,6 +100,8 @@ goodreadsUserId = config.get("goodreadsUserId")
 refreshInterval = config.get("refreshInterval", 60)
 minimizeToTray = config.get("minimizeToTray", True)
 StartOnStartup = config.get("startOnStartup", False)
+currentISBN = config.get("currentISBN", None)
+
 if config.get("keepRunning", True):
     stayRunningAfterGUIEvent.set()
 
@@ -217,26 +231,33 @@ def get_currently_reading(userId):
         response = requests.get(url, headers=headers, timeout=10)
         if response.status_code != 200:
             log(f"Failed to fetch Goodreads page: {response.status_code}")
-            return None, None, None, None
+            return None
         soup = BeautifulSoup(response.text, 'html.parser')
         bookTable = soup.find("table", {"id": "books"})
+        log("Book table found." if bookTable else "No book table found.")
         if not bookTable:
             log("No book table found.")
-            return None, None, None, None
-        firstRow = bookTable.find("tr", {"id": lambda x: x and x.startswith("review_")})
-        if not firstRow:
-            log("No book row found.")
-            return None, None, None, None
-        title = firstRow.find("td", class_="field title").find("a").get_text(strip=True)
-        author = firstRow.find("td", class_="field author").find("a").get_text(strip=True)
-        coverArt = firstRow.find("td", class_="field cover").find("img")["src"]
-        coverArt = re.sub(r'\._[A-Z0-9]+_(?=\.(jpg|jpeg|png))', '', coverArt, flags=re.IGNORECASE)
-        startDateSpan = firstRow.find("td", class_="field date_started").find("span", class_="date_started_value")
-        startDate = startDateSpan.get_text(strip=True) if startDateSpan else None
-        return title, author, coverArt, startDate
+            return None
+        rows = bookTable.find_all("tr", {"id": lambda x: x and x.startswith("review_")})
+        log(f"Found {len(rows)} book rows.")
+        if not rows:
+            log("No book rows found.")
+            return None
+        books = {}
+        for row in rows:
+            log("Processing a book row.")
+            title = row.find("td", class_="field title").find("a").get_text(strip=True)
+            author = row.find("td", class_="field author").find("a").get_text(strip=True)
+            coverArt = row.find("td", class_="field cover").find("img")["src"]
+            coverArt = re.sub(r'\._[A-Z0-9]+_(?=\.(jpg|jpeg|png))', '', coverArt, flags=re.IGNORECASE)
+            startDateSpan = row.find("td", class_="field date_started").find("span", class_="date_started_value")
+            startDate = startDateSpan.get_text(strip=True) if startDateSpan else None
+            isbn = row.find("td", class_="field isbn").find("div", class_="value").get_text(strip=True) if row.find("td", class_="field isbn").find("div", class_="value").get_text(strip=True) else f"noisbn-{title}-{author}"
+            books[isbn] = (isbn, title, author, coverArt, startDate)
+        return books
     except Exception as e:
         log(f"Error in Goodreads getter: {e}")
-        return None, None, None, None
+        return None
 
 # === Presence Loop ===
 def presence_loop():
@@ -251,21 +272,35 @@ def presence_loop():
     while True:
         if not trayQuitEvent.is_set():
             if loopShouldRunEvent.is_set():
-                title, author, cover, start = get_currently_reading(goodreadsUserId)
-                if title and author:
+                global title, author, cover, start, currentISBN
+                data = get_currently_reading(goodreadsUserId)
+                if data:
+                    if currentISBN in data:
+                        currentBook["isbn"], currentBook["title"], currentBook["author"], currentBook["cover"], currentBook["start"] = data[currentISBN][0:5]
+                        log(f"Current book: {currentBook['title']} by {currentBook['author']}")
+                    else:
+                        default_isbn = list(data.keys())[0]
+                        save_new_isbn(default_isbn)
+                        currentBook["isbn"], currentBook["title"], currentBook["author"], currentBook["cover"], currentBook["start"] = data[default_isbn][0:5]
+                        log(f"Default book set: {currentBook['title']} by {currentBook['author']}")
+                else:
+                    log("[Error] Could not retrieve currently reading books.")
+                    time.sleep(10)
+                    continue
+                if currentBook["title"] and currentBook["author"]:
                     try:
                         rpc.update(
-                            details=title,
-                            state=f"by {author if author else 'Unknown Author'}",
-                            large_image=cover or "https://i.gr-assets.com/images/S/compressed.photo.goodreads.com/nophoto/book/111x148._SX50_.png",
+                            details=currentBook["title"],
+                            state=f"by {currentBook['author'] if currentBook['author'] else 'Unknown Author'}",
+                            large_image=currentBook["cover"] or "https://i.gr-assets.com/images/S/compressed.photo.goodreads.com/nophoto/book/111x148._SX50_.png",
                             large_text="Reading via Goodreads",
-                            start=int(time.mktime(time.strptime(start, "%b %d, %Y"))) if start else None,
+                            start=int(time.mktime(time.strptime(currentBook["start"], "%b %d, %Y"))) if currentBook["start"] else None,
                             buttons=[{
                                 "label": "View Goodreads",
                                 "url": f"https://www.goodreads.com/review/list/{goodreadsUserId}?shelf=currently-reading"
                             }]
                         )
-                        log(f"[Updated] {title} by {author}")
+                        log(f"[Updated] {currentBook['title']} by {currentBook['author']}")
                     except Exception as e:
                         log(f"RPC update failed: {e}")
                 else:
@@ -292,19 +327,32 @@ def presence_loop():
             rpc.close()
             break
 
+# === Save New ISBN Function ===
+def save_new_isbn(isbn):
+    global currentISBN
+    currentISBN = isbn
+    with open(configFile, "r+") as f:
+        configData = json.load(f)
+        configData["currentISBN"] = currentISBN
+        f.seek(0)
+        json.dump(configData, f, indent=4)
+        f.truncate()
+    log(f"New ISBN saved: {currentISBN}")
+
 # === GUI ===
 def launch_gui():
     global discordAppId, goodreadsUserId, refreshInterval, minimizeToTray, StartOnStartup
 
     def save_config():
-        global discordAppId, goodreadsUserId, refreshInterval, minimizeToTray, StartOnStartup
+        global discordAppId, goodreadsUserId, refreshInterval, minimizeToTray, StartOnStartup, currentISBN, currentBook
         configData = {
             "discordAppId": discordAppIdVar.get(),
             "goodreadsUserId": goodreadsUserIdVar.get(),
             "keepRunning": keepRunningVar.get(),
             "minimizeToTray": minimizeToTrayVar.get(),
             "startOnStartup": startOnStartupVar.get(),
-            "refreshInterval": refreshIntervalVar.get()
+            "refreshInterval": refreshIntervalVar.get(),
+            "currentISBN": currentBookVar.get().split(" -- ")[-1] if currentBookVar.get() != "None" else None
         }
         with open(configFile, "w") as f:
             json.dump(configData, f, indent=4)
@@ -313,6 +361,8 @@ def launch_gui():
         refreshInterval = configData["refreshInterval"]
         minimizeToTray = configData["minimizeToTray"]
         StartOnStartup = configData["startOnStartup"]
+        currentISBN = configData["currentISBN"]
+        currentBook = books.get(currentISBN, {"isbn": None, "title": None, "author": None, "cover": None, "start": None})
         set_startup_enabled()
         if keepRunningVar.get():
             stayRunningAfterGUIEvent.set()
@@ -340,6 +390,7 @@ def launch_gui():
     refreshIntervalVar = tk.IntVar(value=refreshInterval)
     minimizeToTrayVar = tk.BooleanVar(value=minimizeToTray)
     startOnStartupVar = tk.BooleanVar(value=config.get("startOnStartup", False))
+    currentBookVar = tk.StringVar(value=str(books[currentISBN][1]) + " -- " + str(currentISBN) if currentISBN else "None")
 
     ttk.Label(root, text="Discord App ID (Enter to Save):").grid(row=0, column=0, padx=10, pady=5, sticky="w")
     discordAppIdEntry = ttk.Entry(root, textvariable=discordAppIdVar, width=40)
@@ -353,20 +404,26 @@ def launch_gui():
     goodreadsUserIdEntry.grid(row=1, column=1, padx=10, pady=5)
     goodreadsUserIdEntry.bind("<Return>", lambda e: save_config())
     goodreadsUserIdEntry.bind("<FocusOut>", lambda e: save_config())
+    
+    ttk.Label(root, text="displayed book:").grid(row=2, column=0, padx=10, pady=5, sticky="w")
+    bookOptions = [str(title) + " -- " + str(isbn) for isbn, (isbnin, title, author, cover, start) in books.items()]
+    currentBookDropdown = ttk.Combobox(root, textvariable=currentBookVar, values=bookOptions, state="readonly")
+    currentBookDropdown.grid(row=2, column=1, columnspan=2, padx=10, pady=5, sticky="w")
+    currentBookDropdown.bind("<<ComboboxSelected>>", lambda e: save_config())
 
     keepRunningCheck = ttk.Checkbutton(root, text="Keep presence running after closing", variable=keepRunningVar)
-    keepRunningCheck.grid(row=2, column=0, columnspan=2, pady=5)
+    keepRunningCheck.grid(row=3, column=0, columnspan=2, pady=5)
     keepRunningVar.trace_add("write", lambda *_: save_config())
     minimizeToTrayCheck = ttk.Checkbutton(root, text="Minimize to tray on close", variable=minimizeToTrayVar)
-    minimizeToTrayCheck.grid(row=3, column=0, columnspan=2, pady=5)
+    minimizeToTrayCheck.grid(row=4, column=0, columnspan=2, pady=5)
     minimizeToTrayVar.trace_add("write", lambda *_: save_config())
     startOnStartupCheck = ttk.Checkbutton(root, text="Start this app on system startup", variable=startOnStartupVar)
-    startOnStartupCheck.grid(row=4, column=0, columnspan=2, pady=5)
+    startOnStartupCheck.grid(row=5, column=0, columnspan=2, pady=5)
     startOnStartupVar.trace_add("write", lambda *_: save_config())
 
-    ttk.Label(root, text="Refresh Interval (seconds):").grid(row=5, column=0, padx=10, pady=5, sticky="w")
+    ttk.Label(root, text="Refresh Interval (seconds):").grid(row=6, column=0, padx=10, pady=5, sticky="w")
     refreshIntervalEntry = ttk.Entry(root, textvariable=refreshIntervalVar, width=10)
-    refreshIntervalEntry.grid(row=5, column=1, padx=10, pady=5)
+    refreshIntervalEntry.grid(row=6, column=1, padx=10, pady=5)
     refreshIntervalEntry.bind("<Return>", lambda e: save_config())
     refreshIntervalEntry.bind("<FocusOut>", lambda e: save_config())
 
@@ -384,6 +441,24 @@ def launch_gui():
 
 # === Main ===
 if __name__ == "__main__":
+    log("Starting Goodreads Discord RPC application.")
+    books = get_currently_reading(goodreadsUserId)
+    if books:
+        if currentISBN:
+            if currentISBN in books:
+                currentBook["isbn"], currentBook["title"], currentBook["author"], currentBook["cover"], currentBook["start"] = books[currentISBN]
+                log(f"Current book: {currentBook['title']} by {currentBook['author']}")
+            else:
+                default_isbn = list(books.keys())[0]
+                currentBook["isbn"], currentBook["title"], currentBook["author"], currentBook["cover"], currentBook["start"] = books[default_isbn]
+                log(f"Current book: {currentBook['title']} by {currentBook['author']}")
+        else:
+            default_isbn = list(books.keys())[0]
+            currentBook["isbn"], currentBook["title"], currentBook["author"], currentBook["cover"], currentBook["start"] = books[default_isbn]
+            log(f"Current book: {currentBook['title']} by {currentBook['author']}")
+    else:
+        log("No currently reading book found.")
+    
     loopShouldRunEvent.set()
 
     loopThread = threading.Thread(target=presence_loop, daemon=True)
