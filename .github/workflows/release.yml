@@ -5,6 +5,7 @@ on:
     branches: [main]
     tags: ["v*"] 
   workflow_dispatch:
+
 permissions:
   contents: write
 
@@ -51,28 +52,75 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install py2app pyobjc requests beautifulsoup4 pypresence pystray pillow
-      
+
       - name: Generate .icns icon file
         run: |
           python generate_icns.py
-          ls -lh icon.icns 
+          ls -lh icon.icns
 
       - name: Build macOS .app
         run: python setup.py py2app
+
+      - name: Verify built .app launches
+        run: |
+          echo "Launching the built .app in headless mode"
+          open dist/GR-CustomDiscordStatus.app
+          sleep 5
+          if [ -f /tmp/grrpc_launched.txt ]; then
+            echo "✅ Built .app launched successfully."
+          else
+            echo "❌ Built .app failed to launch or crashed."
+            cat /tmp/grrpc_launch_error.txt || echo "No error log found."
+            exit 1
+          fi
 
       - name: Zip .app for upload
         run: |
           cd dist
           zip -r GR-CustomDiscordStatus.app.zip GR-CustomDiscordStatus.app
 
+      - name: Create .dmg from .app
+        run: |
+          mkdir dmg-stage
+          cp -R dist/GR-CustomDiscordStatus.app dmg-stage/
+          hdiutil create -volname "GoodreadsRPC" -srcfolder dmg-stage -ov -format UDZO dist/GR-CustomDiscordStatus.dmg
+
+      - name: Verify .dmg launches app successfully
+        run: |
+          echo "Attaching DMG..."
+          MOUNT_DIR=$(hdiutil attach dist/GR-CustomDiscordStatus.dmg | grep /Volumes/GoodreadsRPC | awk '{print $3}')
+          echo "Mounted at $MOUNT_DIR"
+
+          echo "Launching app from DMG..."
+          open "$MOUNT_DIR/GR-CustomDiscordStatus.app"
+          sleep 5
+
+          if [ -f /tmp/grrpc_launched.txt ]; then
+            echo "✅ .dmg app launched successfully."
+          else
+            echo "❌ .dmg app failed to launch or crashed."
+            cat /tmp/grrpc_launch_error.txt || echo "No error log found."
+            hdiutil detach "$MOUNT_DIR"
+            exit 1
+          fi
+
+          echo "Detaching DMG..."
+          hdiutil detach "$MOUNT_DIR"
+
       - name: Show build output
         run: ls -R dist
 
-      - name: Upload macOS .app
+      - name: Upload macOS .app.zip
         uses: actions/upload-artifact@v4
         with:
           name: macOS-APP
           path: dist/GR-CustomDiscordStatus.app.zip
+
+      - name: Upload macOS .dmg
+        uses: actions/upload-artifact@v4
+        with:
+          name: macOS-DMG
+          path: dist/GR-CustomDiscordStatus.dmg
 
   release:
     runs-on: ubuntu-latest
@@ -85,10 +133,16 @@ jobs:
           name: Windows-EXE
           path: ./artifacts
 
-      - name: Download macOS artifact
+      - name: Download macOS .app.zip artifact
         uses: actions/download-artifact@v4
         with:
           name: macOS-APP
+          path: ./artifacts
+
+      - name: Download macOS .dmg artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: macOS-DMG
           path: ./artifacts
 
       - name: Show downloaded files
@@ -100,5 +154,5 @@ jobs:
           files: |
             artifacts/GR-CustomDiscordStatus.exe
             artifacts/GR-CustomDiscordStatus.app.zip
+            artifacts/GR-CustomDiscordStatus.dmg
           generate_release_notes: true
-            

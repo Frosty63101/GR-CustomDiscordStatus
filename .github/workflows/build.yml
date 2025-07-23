@@ -2,7 +2,7 @@ name: Build and Upload App
 
 on:
   push:
-    branches: [main] 
+    branches: ["*"]
   workflow_dispatch: 
 
 jobs:
@@ -71,7 +71,36 @@ jobs:
             cat /tmp/grrpc_launch_error.txt || echo "No error log found."
             exit 1
           fi
-      
+
+      - name: Create DMG
+        run: |
+          mkdir dmg-stage
+          cp -R dist/GR-CustomDiscordStatus.app dmg-stage/
+          hdiutil create -volname "GoodreadsRPC" -srcfolder dmg-stage -ov -format UDZO dist/GR-CustomDiscordStatus.dmg
+          echo "DMG created at dist/GR-CustomDiscordStatus.dmg"
+
+      - name: Verify .dmg launches app successfully
+        run: |
+          echo "Attaching DMG..."
+          MOUNT_DIR=$(hdiutil attach dist/GR-CustomDiscordStatus.dmg | grep /Volumes/GoodreadsRPC | awk '{print $3}')
+          echo "Mounted at $MOUNT_DIR"
+
+          echo "Launching app from DMG..."
+          open "$MOUNT_DIR/GR-CustomDiscordStatus.app"
+          sleep 5
+
+          if [ -f /tmp/grrpc_launched.txt ]; then
+            echo "✅ .dmg app launched successfully."
+          else
+            echo "❌ .dmg app failed to launch or crashed."
+            cat /tmp/grrpc_launch_error.txt || echo "No error log found."
+            hdiutil detach "$MOUNT_DIR"
+            exit 1
+          fi
+
+          echo "Detaching DMG..."
+          hdiutil detach "$MOUNT_DIR"
+
       - name: Upload launch logs (optional)
         uses: actions/upload-artifact@v4
         with:
@@ -83,3 +112,10 @@ jobs:
         with:
           name: macOS-APP
           path: dist/GR-CustomDiscordStatus.app
+
+      - name: Upload macOS .dmg
+        uses: actions/upload-artifact@v4
+        with:
+          name: macOS-DMG
+          path: dist/GR-CustomDiscordStatus.dmg
+
