@@ -58,6 +58,15 @@ jobs:
         run: |
           python setup.py py2app
 
+      - name: Verify .app launches without crashing
+        run: |
+          echo "Launching the .app in headless mode"
+          open dist/GR-CustomDiscordStatus.app
+          sleep 5
+          # Check if it stayed running
+          pgrep -f GR-CustomDiscordStatus || (echo "App failed to launch" && exit 1)
+          echo "App launched successfully"
+
       - name: Upload macOS .app
         uses: actions/upload-artifact@v4
         with:
