@@ -58,14 +58,25 @@ jobs:
         run: |
           python setup.py py2app
 
-      - name: Verify .app launches without crashing
+      - name: Verify .app launches and creates launch log
         run: |
           echo "Launching the .app in headless mode"
           open dist/GR-CustomDiscordStatus.app
           sleep 5
-          # Check if it stayed running
-          pgrep -f GR-CustomDiscordStatus || (echo "App failed to launch" && exit 1)
-          echo "App launched successfully"
+          if [ -f /tmp/grrpc_launched.txt ]; then
+            echo "✅ App launched successfully."
+          else
+            echo "❌ App failed to launch or crashed."
+            echo "--- Error log ---"
+            cat /tmp/grrpc_launch_error.txt || echo "No error log found."
+            exit 1
+          fi
+      
+      - name: Upload launch logs (optional)
+        uses: actions/upload-artifact@v4
+        with:
+          name: LaunchLogs
+          path: /tmp/
 
       - name: Upload macOS .app
         uses: actions/upload-artifact@v4
