@@ -114,6 +114,15 @@ if os.getenv("GITHUB_ACTIONS") == "true" or "CI" in os.environ:
         with open("/tmp/grrpc_launch_error.txt", "w") as f:
             f.write(str(e))
 
+# === Restart Program Function ===
+def restart_program():
+    try:
+        log("Restarting program...")
+    except:
+        pass
+    python = sys.executable
+    os.execv(python, [python] + sys.argv)
+
 # === Updater Function ===
 def update_application():
     try:
@@ -268,6 +277,7 @@ def show_tray():
     icon.title = "Goodreads RPC"
     icon.menu = pystray.Menu(
         pystray.MenuItem("Quit", on_tray_quit),
+        pystray.MenuItem("Restart", lambda icon, item: restart_program()),
         pystray.MenuItem("Open", lambda icon, item: showGUI()),
     )
     icon.run()
@@ -360,7 +370,35 @@ def presence_loop():
                         )
                         log(f"[Updated] {currentBook['title']} by {currentBook['author']}")
                     except Exception as e:
-                        log(f"RPC update failed: {e}")
+                        errorMessage = str(e).lower()
+                        if "pipe" in errorMessage or "closed" in errorMessage or isinstance(e, (ConnectionResetError, BrokenPipeError, OSError)):
+                            log(f"RPC connection lost or pipe closed: {e}, attempting reconnect.")
+                            try:
+                                rpc.close()
+                            except Exception:
+                                pass
+                            try:
+                                rpc = Presence(discordAppId)
+                                rpc.connect()
+                                log("Reconnected to Discord RPC.")
+                                rpc.update(
+                                    details=currentBook["title"],
+                                    state=f"by {currentBook['author'] if currentBook['author'] else 'Unknown Author'}",
+                                    large_image=currentBook["cover"] or "https://i.gr-assets.com/images/S/compressed.photo.goodreads.com/nophoto/book/111x148._SX50_.png",
+                                    large_text="Reading via Goodreads",
+                                    start=int(time.mktime(time.strptime(currentBook["start"], "%b %d, %Y"))) if currentBook["start"] else None,
+                                    buttons=[{
+                                        "label": "View Goodreads",
+                                        "url": f"https://www.goodreads.com/review/list/{goodreadsUserId}?shelf=currently-reading"
+                                    }]
+                                )
+                            except Exception as reconnectError:
+                                log(f"Reconnection failed: {reconnectError}")
+                                time.sleep(10)
+                                continue
+                        else:
+                            log(f"Unexpected RPC update error: {e}")
+
                 else:
                     log("[Error] Could not retrieve current book.")
                     time.sleep(10)
