@@ -132,7 +132,7 @@ def update_application():
         response.raise_for_status()
         release_data = response.json()
 
-        # Find the correct file
+        # Determine correct download URL
         download_url = None
         for asset in release_data.get("assets", []):
             if IS_WINDOWS and asset["name"].endswith(".exe"):
@@ -145,16 +145,13 @@ def update_application():
         if not download_url:
             messagebox.showerror("Update Error", "No compatible release found.")
             return
-        
-        # check if there is a .bak file already and delete it
-        current_path = os.path.realpath(sys.argv[0])
-        backup_path = current_path + ".bak"
-        if os.path.exists(backup_path):
-            log("Backup file exists, deleting it.")
-            os.remove(backup_path)
+
+        # Prepare download
+        tmp_file = os.path.join(basePath, "GoodreadsRPC_Update.tmp")
+        if os.path.exists(tmp_file):
+            os.remove(tmp_file)
 
         log(f"Downloading update from: {download_url}")
-        tmp_file = os.path.join(basePath, "GoodreadsRPC_Update.tmp")
         with requests.get(download_url, stream=True) as r:
             r.raise_for_status()
             with open(tmp_file, "wb") as f:
@@ -162,17 +159,84 @@ def update_application():
                     f.write(chunk)
 
         current_path = os.path.realpath(sys.argv[0])
-        backup_path = current_path + ".bak"
 
-        log("Renaming current executable to backup.")
-        os.rename(current_path, backup_path)
-        log("Renaming downloaded update to original filename.")
-        os.rename(tmp_file, current_path)
+        # ================================
+        # Windows: use .bat to update self
+        # ================================
+        if IS_WINDOWS:
+            backup_path = current_path + ".bak"
+            if os.path.exists(backup_path):
+                log("Deleting previous .bak backup.")
+                os.remove(backup_path)
 
-        log("Relaunching updated application.")
-        subprocess.Popen([current_path])
-        trayQuitEvent.set()
-        os._exit(0)
+            launcher_script = os.path.join(basePath, "update_launcher.bat")
+            log("Creating update launcher .bat...")
+            with open(launcher_script, "w") as f:
+                f.write(f"""@echo off
+timeout /t 1 >nul
+move /Y "{current_path}" "{backup_path}"
+move /Y "{tmp_file}" "{current_path}"
+start "" "{current_path}"
+del "%~f0"
+""")
+
+            subprocess.Popen(["cmd", "/c", launcher_script])
+            trayQuitEvent.set()
+            os._exit(0)
+            return
+
+        # ================================
+        # macOS: use .sh to update .app bundle
+        # ================================
+        elif IS_MAC:
+            import shutil
+            import zipfile
+
+            app_bundle_path = os.path.abspath(os.path.join(current_path, "../../../"))
+            backup_path = app_bundle_path + ".bak"
+            extracted_path = os.path.join(basePath, "update_temp")
+
+            if os.path.exists(backup_path):
+                log("Removing previous .app.bak backup.")
+                shutil.rmtree(backup_path, ignore_errors=True)
+            if os.path.exists(extracted_path):
+                shutil.rmtree(extracted_path, ignore_errors=True)
+
+            os.makedirs(extracted_path, exist_ok=True)
+
+            log("Extracting update zip...")
+            with zipfile.ZipFile(tmp_file, 'r') as zip_ref:
+                zip_ref.extractall(extracted_path)
+
+            extracted_app_path = next(
+                (os.path.join(extracted_path, d) for d in os.listdir(extracted_path) if d.endswith(".app")),
+                None
+            )
+
+            if not extracted_app_path or not os.path.exists(extracted_app_path):
+                raise Exception("Extracted .app bundle not found.")
+
+            launcher_script = os.path.join(basePath, "mac_updater.sh")
+            log("Creating macOS update shell script...")
+            with open(launcher_script, "w") as f:
+                f.write(f"""#!/bin/bash
+sleep 1
+mv "{app_bundle_path}" "{backup_path}"
+mv "{extracted_app_path}" "{app_bundle_path}"
+open "{app_bundle_path}"
+rm -- "$0"
+""")
+
+            os.chmod(launcher_script, 0o755)
+            subprocess.Popen(["/bin/bash", launcher_script])
+            trayQuitEvent.set()
+            os._exit(0)
+            return
+
+        else:
+            log("Updater not implemented for this platform.")
+            messagebox.showerror("Unsupported", "Your OS is not supported for self-updates.")
+            return
 
     except Exception as e:
         log(f"Update failed: {e}")
