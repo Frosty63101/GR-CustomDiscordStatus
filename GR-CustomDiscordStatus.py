@@ -175,35 +175,54 @@ def update_application():
                 f.write(f"""@echo off
 setlocal
 set TMPFILE="%~dp0GoodreadsRPC_Update.tmp"
-set CURFILE="%~dpnx0"
-set BACKUPFILE="%~dp0GR-CustomDiscordStatus.exe.bak"
 set NEWFILE="%~dp0GR-CustomDiscordStatus.exe"
+set BACKUPFILE="%~dp0GR-CustomDiscordStatus.exe.bak"
+set LOGFILE="%~dp0update.log"
 
+echo [%TIME%] === Starting updater === >> %LOGFILE%
+
+:: Wait until the old exe process is fully closed
 :waitloop
 tasklist | find /I "GR-CustomDiscordStatus.exe" >nul
-if not errorlevel 1 (
+if %ERRORLEVEL%==0 (
+    echo [%TIME%] Waiting for process to terminate... >> %LOGFILE%
     timeout /t 1 >nul
     goto waitloop
 )
 
-REM Proceed with replacement
-move /Y "%~dp0GR-CustomDiscordStatus.exe" "%~dp0GR-CustomDiscordStatus.exe.bak"
-move /Y "%~dp0GoodreadsRPC_Update.tmp" "%~dp0GR-CustomDiscordStatus.exe"
-start "" "%~dp0GR-CustomDiscordStatus.exe"
-timeout /t 3 >nul
-del "%~f0"
+:: Safety delay to let Windows release the file lock
+echo [%TIME%] Process exited. Waiting extra delay. >> %LOGFILE%
+timeout /t 2 >nul
 
-REM Launch new executable and wait to ensure PyInstaller temp cleanup finishes
+:: Backup old exe
+if exist %BACKUPFILE% (
+    echo [%TIME%] Removing previous backup... >> %LOGFILE%
+    del /f /q %BACKUPFILE%
+)
+
+echo [%TIME%] Renaming old exe to backup >> %LOGFILE%
+move /Y %NEWFILE% %BACKUPFILE%
+
+:: Move updated file into place
+echo [%TIME%] Moving new exe into place >> %LOGFILE%
+move /Y %TMPFILE% %NEWFILE%
+
+:: Extra delay to avoid race with disk cache flush
+timeout /t 1 >nul
+
+:: Launch the new app
+echo [%TIME%] Launching updated executable >> %LOGFILE%
 start "" "%NEWFILE%"
-timeout /t 3 >nul
 
-REM Cleanup launcher
+:: Cleanup
+echo [%TIME%] Cleaning up launcher >> %LOGFILE%
 del "%~f0"
+
 """)
 
             subprocess.Popen(["cmd", "/c", launcher_script])
             trayQuitEvent.set()
-            time.sleep(2)  # Allow time for the launcher to start
+            time.sleep(5)  # Allow time for the launcher to start
             os._exit(0)
             return
 
