@@ -173,10 +173,25 @@ def update_application():
             log("Creating update launcher .bat...")
             with open(launcher_script, "w") as f:
                 f.write(f"""@echo off
+setlocal
+set TMPFILE="%~dp0GoodreadsRPC_Update.tmp"
+set CURFILE="%~dpnx0"
+set BACKUPFILE="%~dp0GR-CustomDiscordStatus.exe.bak"
+set NEWFILE="%~dp0GR-CustomDiscordStatus.exe"
+
 timeout /t 1 >nul
-move /Y "{current_path}" "{backup_path}"
-move /Y "{tmp_file}" "{current_path}"
-start "" "{current_path}"
+
+REM Rename current exe to .bak
+move /Y %NEWFILE% %BACKUPFILE%
+
+REM Move updated file into place
+move /Y %TMPFILE% %NEWFILE%
+
+REM Launch new executable and wait to ensure PyInstaller temp cleanup finishes
+start "" "%NEWFILE%"
+timeout /t 3 >nul
+
+REM Cleanup launcher
 del "%~f0"
 """)
 
