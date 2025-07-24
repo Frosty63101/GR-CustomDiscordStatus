@@ -145,6 +145,13 @@ def update_application():
         if not download_url:
             messagebox.showerror("Update Error", "No compatible release found.")
             return
+        
+        # check if there is a .bak file already and delete it
+        current_path = os.path.realpath(sys.argv[0])
+        backup_path = current_path + ".bak"
+        if os.path.exists(backup_path):
+            log("Backup file exists, deleting it.")
+            os.remove(backup_path)
 
         log(f"Downloading update from: {download_url}")
         tmp_file = os.path.join(basePath, "GoodreadsRPC_Update.tmp")
