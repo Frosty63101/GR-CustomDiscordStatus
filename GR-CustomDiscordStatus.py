@@ -179,13 +179,19 @@ set CURFILE="%~dpnx0"
 set BACKUPFILE="%~dp0GR-CustomDiscordStatus.exe.bak"
 set NEWFILE="%~dp0GR-CustomDiscordStatus.exe"
 
-timeout /t 1 >nul
+:waitloop
+tasklist | find /I "GR-CustomDiscordStatus.exe" >nul
+if not errorlevel 1 (
+    timeout /t 1 >nul
+    goto waitloop
+)
 
-REM Rename current exe to .bak
-move /Y %NEWFILE% %BACKUPFILE%
-
-REM Move updated file into place
-move /Y %TMPFILE% %NEWFILE%
+REM Proceed with replacement
+move /Y "%~dp0GR-CustomDiscordStatus.exe" "%~dp0GR-CustomDiscordStatus.exe.bak"
+move /Y "%~dp0GoodreadsRPC_Update.tmp" "%~dp0GR-CustomDiscordStatus.exe"
+start "" "%~dp0GR-CustomDiscordStatus.exe"
+timeout /t 3 >nul
+del "%~f0"
 
 REM Launch new executable and wait to ensure PyInstaller temp cleanup finishes
 start "" "%NEWFILE%"
@@ -197,6 +203,7 @@ del "%~f0"
 
             subprocess.Popen(["cmd", "/c", launcher_script])
             trayQuitEvent.set()
+            time.sleep(2)  # Allow time for the launcher to start
             os._exit(0)
             return
 
