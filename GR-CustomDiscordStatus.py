@@ -177,11 +177,11 @@ setlocal
 set TMPFILE="%~dp0GoodreadsRPC_Update.tmp"
 set NEWFILE="%~dp0GR-CustomDiscordStatus.exe"
 set BACKUPFILE="%~dp0GR-CustomDiscordStatus.exe.bak"
+set LAUNCHER2="%~dp0second_launcher.bat"
 set LOGFILE="%~dp0update.log"
 
 echo [%TIME%] === Starting updater === >> %LOGFILE%
 
-:: Wait until the old exe process is fully closed
 :waitloop
 tasklist | find /I "GR-CustomDiscordStatus.exe" >nul
 if %ERRORLEVEL%==0 (
@@ -190,32 +190,24 @@ if %ERRORLEVEL%==0 (
     goto waitloop
 )
 
-:: Safety delay to let Windows release the file lock
 echo [%TIME%] Process exited. Waiting extra delay. >> %LOGFILE%
 timeout /t 2 >nul
 
-:: Backup old exe
-if exist %BACKUPFILE% (
-    echo [%TIME%] Removing previous backup... >> %LOGFILE%
-    del /f /q %BACKUPFILE%
-)
-
-echo [%TIME%] Renaming old exe to backup >> %LOGFILE%
+if exist %BACKUPFILE% del /f /q %BACKUPFILE%
 move /Y %NEWFILE% %BACKUPFILE%
-
-:: Move updated file into place
-echo [%TIME%] Moving new exe into place >> %LOGFILE%
 move /Y %TMPFILE% %NEWFILE%
 
-:: Extra delay to avoid race with disk cache flush
-timeout /t 1 >nul
+:: Create a second-stage launcher that launches the app after the first batch fully exits
+echo @echo off > %LAUNCHER2%
+echo timeout /t 3 >nul >> %LAUNCHER2%
+echo start "" "%NEWFILE%" >> %LAUNCHER2%
+echo del "%%~f0" >> %LAUNCHER2%
 
-:: Launch the new app
-echo [%TIME%] Launching updated executable >> %LOGFILE%
-start "" "%NEWFILE%"
+:: Launch second-stage launcher
+echo [%TIME%] Launching delayed launcher >> %LOGFILE%
+start "" %LAUNCHER2%
 
-:: Cleanup
-echo [%TIME%] Cleaning up launcher >> %LOGFILE%
+echo [%TIME%] Cleaning up primary launcher >> %LOGFILE%
 del "%~f0"
 
 """)
