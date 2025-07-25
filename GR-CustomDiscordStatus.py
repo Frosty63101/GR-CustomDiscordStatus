@@ -15,26 +15,13 @@ import sys
 import platform
 import subprocess
 
-# === Platform Checks ===
-IS_WINDOWS = platform.system() == "Windows"
-IS_MAC = platform.system() == "Darwin"
-IS_LINUX = platform.system() == "Linux"
-
-if IS_WINDOWS:
-    from win32com.client import Dispatch
+from win32com.client import Dispatch
 
 basePath = os.path.dirname(os.path.realpath(sys.argv[0]))
 
 def get_config_path():
-    if IS_WINDOWS:
-        appdata = os.getenv("APPDATA") or os.path.expanduser("~\\AppData\\Roaming")
-        return os.path.join(appdata, "GoodreadsRPC", "config.json")
-    elif IS_MAC:
-        return os.path.expanduser("~/Library/Application Support/GoodreadsRPC/config.json")
-    elif IS_LINUX:
-        return os.path.expanduser("~/.config/GoodreadsRPC/config.json")
-    else:
-        return os.path.join(basePath, "config.json")
+    appdata = os.getenv("APPDATA") or os.path.expanduser("~\\AppData\\Roaming")
+    return os.path.join(appdata, "GoodreadsRPC", "config.json")
 
 configFile = get_config_path()
 
@@ -116,74 +103,28 @@ if os.getenv("GITHUB_ACTIONS") == "true" or "CI" in os.environ:
 
 # === Startup Shortcut Creation ===
 def set_startup_enabled():
-    if IS_WINDOWS:
-        startup_dir = os.path.join(os.getenv('APPDATA'), "Microsoft\\Windows\\Start Menu\\Programs\\Startup")
-        script_path = os.path.realpath(sys.argv[0])
-        shortcut_path = os.path.join(startup_dir, "GoodreadsRPC.lnk")
+    startup_dir = os.path.join(os.getenv('APPDATA'), "Microsoft\\Windows\\Start Menu\\Programs\\Startup")
+    script_path = os.path.realpath(sys.argv[0])
+    shortcut_path = os.path.join(startup_dir, "GoodreadsRPC.lnk")
 
-        if StartOnStartup:
-            try:
-                shell = Dispatch("WScript.Shell")
-                shortcut = shell.CreateShortCut(shortcut_path)
-                shortcut.Targetpath = script_path
-                shortcut.WorkingDirectory = os.path.dirname(script_path)
-                shortcut.IconLocation = script_path
-                shortcut.save()
-                log("Startup shortcut created.")
-            except Exception as e:
-                log(f"Failed to create startup shortcut: {e}")
-        else:
-            try:
-                if os.path.exists(shortcut_path):
-                    os.remove(shortcut_path)
-                    log("Startup shortcut removed.")
-            except Exception as e:
-                log(f"Failed to remove startup shortcut: {e}")
-    elif IS_MAC:
-        plist_name = "com.goodreads.rpc.plist"
-        plist_path = os.path.expanduser(f"~/Library/LaunchAgents/{plist_name}")
-        python_exec = sys.executable
-        script_path = os.path.realpath(sys.argv[0])
-        if getattr(sys, 'frozen', False):
-            script_path = sys.executable
-
-        if StartOnStartup:
-            plist_content = f"""<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.goodreads.rpc</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>{python_exec}</string>
-        <string>{script_path}</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <false/>
-</dict>
-</plist>
-"""
-            try:
-                with open(plist_path, "w") as f:
-                    f.write(plist_content)
-                subprocess.run(["launchctl", "load", plist_path], check=True)
-                log("macOS launchd plist created and loaded.")
-            except Exception as e:
-                log(f"Failed to write/load launchd plist: {e}")
-        else:
-            try:
-                if os.path.exists(plist_path):
-                    subprocess.run(["launchctl", "unload", plist_path], check=True)
-                    os.remove(plist_path)
-                    log("macOS launchd plist removed.")
-            except Exception as e:
-                log(f"Failed to unload/remove launchd plist: {e}")
-
+    if StartOnStartup:
+        try:
+            shell = Dispatch("WScript.Shell")
+            shortcut = shell.CreateShortCut(shortcut_path)
+            shortcut.Targetpath = script_path
+            shortcut.WorkingDirectory = os.path.dirname(script_path)
+            shortcut.IconLocation = script_path
+            shortcut.save()
+            log("Startup shortcut created.")
+        except Exception as e:
+            log(f"Failed to create startup shortcut: {e}")
     else:
-        log("Startup not implemented for this platform.")
+        try:
+            if os.path.exists(shortcut_path):
+                os.remove(shortcut_path)
+                log("Startup shortcut removed.")
+        except Exception as e:
+            log(f"Failed to remove startup shortcut: {e}")
 
 # === Create System Tray Icon ===
 def create_image():
@@ -219,7 +160,6 @@ def show_tray():
     icon.title = "Goodreads RPC"
     icon.menu = pystray.Menu(
         pystray.MenuItem("Quit", on_tray_quit),
-        pystray.MenuItem("Restart", lambda icon, item: restart_program()),
         pystray.MenuItem("Open", lambda icon, item: showGUI()),
     )
     icon.run()
