@@ -30,12 +30,6 @@ pip install pyinstaller
 pyinstaller --noconsole --onefile GR-CustomDiscordStatus.py
 ```
 
-#### macOS:
-```bash
-pip install py2app pyobjc
-python setup.py py2app
-```
-
 ## Features
 
 - **Discord Rich Presence** that updates with your current Goodreads book.
