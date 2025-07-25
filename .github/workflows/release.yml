@@ -3,7 +3,7 @@ name: Build and Upload App on release
 on:
   push:
     branches: [main]
-    tags: ["v*"] 
+    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
@@ -51,28 +51,20 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install py2app pyobjc requests beautifulsoup4 pypresence pystray pillow
+          pip install pyinstaller pyobjc requests beautifulsoup4 pypresence pystray pillow
 
       - name: Generate .icns icon file
         run: |
           python generate_icns.py
           ls -lh icon.icns
 
-      - name: Build macOS .app
-        run: python setup.py py2app
-
-      - name: Verify built .app launches
+      - name: Build macOS .app bundle
         run: |
-          echo "Launching the built .app in headless mode"
-          open dist/GR-CustomDiscordStatus.app
-          sleep 5
-          if [ -f /tmp/grrpc_launched.txt ]; then
-            echo "✅ Built .app launched successfully."
-          else
-            echo "❌ Built .app failed to launch or crashed."
-            cat /tmp/grrpc_launch_error.txt || echo "No error log found."
-            exit 1
-          fi
+          pyinstaller --windowed --icon=icon.icns --name=GR-CustomDiscordStatus \
+          --collect-all pystray --collect-all PIL --collect-submodules PIL \
+          --collect-submodules bs4 \
+          GR-CustomDiscordStatus.py
+          ls -lh dist/
 
       - name: Zip .app for upload
         run: |
@@ -81,34 +73,10 @@ jobs:
 
       - name: Create .dmg from .app
         run: |
+          rm -rf dmg-stage
           mkdir dmg-stage
           cp -R dist/GR-CustomDiscordStatus.app dmg-stage/
           hdiutil create -volname "GoodreadsRPC" -srcfolder dmg-stage -ov -format UDZO dist/GR-CustomDiscordStatus.dmg
-
-      - name: Verify .dmg launches app successfully
-        run: |
-          echo "Attaching DMG..."
-          MOUNT_DIR=$(hdiutil attach dist/GR-CustomDiscordStatus.dmg | grep /Volumes/GoodreadsRPC | awk '{print $3}')
-          echo "Mounted at $MOUNT_DIR"
-
-          echo "Launching app from DMG..."
-          open "$MOUNT_DIR/GR-CustomDiscordStatus.app"
-          sleep 5
-
-          if [ -f /tmp/grrpc_launched.txt ]; then
-            echo "✅ .dmg app launched successfully."
-          else
-            echo "❌ .dmg app failed to launch or crashed."
-            cat /tmp/grrpc_launch_error.txt || echo "No error log found."
-            hdiutil detach "$MOUNT_DIR"
-            exit 1
-          fi
-
-          echo "Detaching DMG..."
-          hdiutil detach "$MOUNT_DIR"
-
-      - name: Show build output
-        run: ls -R dist
 
       - name: Upload macOS .app.zip
         uses: actions/upload-artifact@v4

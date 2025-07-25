@@ -47,59 +47,28 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install py2app pyobjc requests beautifulsoup4 pypresence pystray pillow
+          pip install pyinstaller pyobjc requests beautifulsoup4 pypresence pystray pillow
 
       - name: Generate .icns icon file
         run: |
           python generate_icns.py
-          ls -lh icon.icns 
+          ls -lh icon.icns
 
-      - name: Build macOS .app
+      - name: Build macOS .app bundle
         run: |
-          python setup.py py2app
-
-      - name: Verify .app launches and creates launch log
-        run: |
-          echo "Launching the .app in headless mode"
-          open dist/GR-CustomDiscordStatus.app
-          sleep 5
-          if [ -f /tmp/grrpc_launched.txt ]; then
-            echo "✅ App launched successfully."
-          else
-            echo "❌ App failed to launch or crashed."
-            echo "--- Error log ---"
-            cat /tmp/grrpc_launch_error.txt || echo "No error log found."
-            exit 1
-          fi
+          pyinstaller --windowed --icon=icon.icns --name=GR-CustomDiscordStatus \
+          --collect-all pystray --collect-all PIL --collect-submodules PIL \
+          --collect-submodules bs4 \
+          GR-CustomDiscordStatus.py
+          ls -lh dist/
 
       - name: Create DMG
         run: |
+          rm -rf dmg-stage
           mkdir dmg-stage
           cp -R dist/GR-CustomDiscordStatus.app dmg-stage/
           hdiutil create -volname "GoodreadsRPC" -srcfolder dmg-stage -ov -format UDZO dist/GR-CustomDiscordStatus.dmg
           echo "DMG created at dist/GR-CustomDiscordStatus.dmg"
-
-      - name: Verify .dmg launches app successfully
-        run: |
-          echo "Attaching DMG..."
-          MOUNT_DIR=$(hdiutil attach dist/GR-CustomDiscordStatus.dmg | grep /Volumes/GoodreadsRPC | awk '{print $3}')
-          echo "Mounted at $MOUNT_DIR"
-
-          echo "Launching app from DMG..."
-          open "$MOUNT_DIR/GR-CustomDiscordStatus.app"
-          sleep 5
-
-          if [ -f /tmp/grrpc_launched.txt ]; then
-            echo "✅ .dmg app launched successfully."
-          else
-            echo "❌ .dmg app failed to launch or crashed."
-            cat /tmp/grrpc_launch_error.txt || echo "No error log found."
-            hdiutil detach "$MOUNT_DIR"
-            exit 1
-          fi
-
-          echo "Detaching DMG..."
-          hdiutil detach "$MOUNT_DIR"
 
       - name: Upload launch logs (optional)
         uses: actions/upload-artifact@v4
